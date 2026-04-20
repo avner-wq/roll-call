@@ -1,0 +1,14 @@
+{
+  "name": "roll-call-github-actions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Daily Shapes.co time-away summary posted to Slack #roll-call.",
+  "main": "scripts/roll-call.js",
+  "scripts": {
+    "start": "node scripts/roll-call.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+
