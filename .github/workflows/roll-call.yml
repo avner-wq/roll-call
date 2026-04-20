@@ -1,0 +1,43 @@
+name: Roll Call
+
+on:
+  schedule:
+    # 06:00 UTC = 09:00 Israel (UTC+3, DST). Adjust if your timezone differs
+    # or if Israel switches to standard time (UTC+2 → use 07:00 UTC).
+    - cron: '0 6 * * 1-5'
+  workflow_dispatch:  # lets you trigger manually from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  roll-call:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Roll Call
+        id: rollcall
+        env:
+          SHAPES_REFRESH_TOKEN: ${{ secrets.SHAPES_REFRESH_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: node scripts/roll-call.js
+
+      - name: Persist rotated refresh token
+        # Only runs if the Shapes API returned a different refresh token than we had.
+        # Needs GH_PAT (a PAT with "repo" scope) so it can write to repo secrets.
+        if: steps.rollcall.outputs.rotated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          NEW_TOKEN: ${{ steps.rollcall.outputs.new_refresh_token }}
+        run: |
+          echo "Rotating stored SHAPES_REFRESH_TOKEN…"
+          gh secret set SHAPES_REFRESH_TOKEN \
+            --repo "${{ github.repository }}" \
+            --body "$NEW_TOKEN"
