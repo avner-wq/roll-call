@@ -2,9 +2,9 @@ name: Roll Call
 
 on:
   schedule:
-    # 06:00 UTC = 09:00 Israel (UTC+3, DST). Adjust if your timezone differs
-    # or if Israel switches to standard time (UTC+2 → use 07:00 UTC).
-    - cron: '0 6 * * 1-5'
+    # Cron in UTC. During Israel DST (UTC+3): 07:30 UTC = 10:30 Israel.
+    # During Israel standard time (UTC+2): change to '30 8 * * 0-4'.
+    - cron: '30 7 * * 0-4'  # 07:30 UTC = 10:30 Israel DST, Sun-Thu
   workflow_dispatch:  # lets you trigger manually from the Actions tab
 
 permissions:
