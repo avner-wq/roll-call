@@ -4,7 +4,7 @@ on:
   schedule:
     # Cron in UTC. During Israel DST (UTC+3): 07:30 UTC = 10:30 Israel.
     # During Israel standard time (UTC+2): change to '30 8 * * 0-4'.
-    - cron: '30 7 * * 0-4'  # 07:30 UTC = 10:30 Israel DST, Sun-Thu
+    - cron: '17 6 * * 0-4'  # 06:17 UTC Sun-Thu; early start to absorb GitHub Actions queue delay
   workflow_dispatch:  # lets you trigger manually from the Actions tab
 
 permissions:
