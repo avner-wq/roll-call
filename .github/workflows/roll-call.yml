@@ -2,9 +2,14 @@ name: Roll Call
 
 on:
   schedule:
-    # Cron in UTC. During Israel DST (UTC+3): 07:30 UTC = 10:30 Israel.
-    # During Israel standard time (UTC+2): change to '30 8 * * 0-4'.
-    - cron: '17 6 * * 0-4'  # 06:17 UTC Sun-Thu; early start to absorb GitHub Actions queue delay
+    # GitHub Actions free-tier scheduling is unreliable; we fire 5 attempts
+    # spread across the morning so at least one lands. The cache-based
+    # dedup step below ensures only the first successful run posts.
+    - cron: '17 6 * * 0-4'   # 06:17 UTC = 09:17 Israel DST, Sun-Thu
+    - cron: '37 6 * * 0-4'   # 06:37 UTC = 09:37 Israel DST
+    - cron: '57 6 * * 0-4'   # 06:57 UTC = 09:57 Israel DST
+    - cron: '17 7 * * 0-4'   # 07:17 UTC = 10:17 Israel DST
+    - cron: '37 7 * * 0-4'   # 07:37 UTC = 10:37 Israel DST (last attempt)
   workflow_dispatch:  # lets you trigger manually from the Actions tab
 
 permissions:
@@ -14,20 +19,40 @@ jobs:
   roll-call:
     runs-on: ubuntu-latest
     steps:
+      - name: Set today date
+        run: echo "TODAY=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Daily idempotency cache
+        if: github.event_name == 'schedule'
+        id: dedup
+        uses: actions/cache@v4
+        with:
+          path: .roll-call-marker
+          key: roll-call-${{ env.TODAY }}
+
+      - name: Skip if already posted today
+        if: github.event_name == 'schedule' && steps.dedup.outputs.cache-hit == 'true'
+        run: echo "Already posted today \u2014 skipping remaining steps."
+
       - name: Checkout
+        if: github.event_name != 'schedule' || steps.dedup.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
 
       - name: Set up Node
+        if: github.event_name != 'schedule' || steps.dedup.outputs.cache-hit != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Run Roll Call
+        if: github.event_name != 'schedule' || steps.dedup.outputs.cache-hit != 'true'
         id: rollcall
         env:
           SHAPES_REFRESH_TOKEN: ${{ secrets.SHAPES_REFRESH_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: node scripts/roll-call.js
+        run: |
+          node scripts/roll-call.js
+          touch .roll-call-marker
 
       - name: Persist rotated refresh token
         # Only runs if the Shapes API returned a different refresh token than we had.
@@ -37,7 +62,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           NEW_TOKEN: ${{ steps.rollcall.outputs.new_refresh_token }}
         run: |
-          echo "Rotating stored SHAPES_REFRESH_TOKEN…"
+          echo "Rotating stored SHAPES_REFRESH_TOKEN\u2026"
           gh secret set SHAPES_REFRESH_TOKEN \
             --repo "${{ github.repository }}" \
             --body "$NEW_TOKEN"
