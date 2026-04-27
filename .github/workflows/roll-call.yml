@@ -4,7 +4,9 @@ on:
   schedule:
     # GitHub Actions free-tier scheduling is unreliable; we fire 5 attempts
     # spread across 10:03-10:59 Israel DST so at least one lands. The cache-based
-    # dedup step below ensures only the first successful run posts.
+    # dedup step below ensures only the first successful run posts each day,
+    # regardless of trigger type. Manual runs also save the marker so a delayed
+    # scheduled run later that day skips instead of double-posting.
     - cron: '03 7 * * 0-4'   # 07:03 UTC = 10:03 Israel DST, Sun-Thu
     - cron: '17 7 * * 0-4'   # 07:17 UTC = 10:17 Israel DST
     - cron: '31 7 * * 0-4'   # 07:31 UTC = 10:31 Israel DST
@@ -23,7 +25,6 @@ jobs:
         run: echo "TODAY=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
 
       - name: Daily idempotency cache
-        if: github.event_name == 'schedule'
         id: dedup
         uses: actions/cache@v4
         with:
@@ -31,21 +32,21 @@ jobs:
           key: roll-call-${{ env.TODAY }}
 
       - name: Skip if already posted today
-        if: github.event_name == 'schedule' && steps.dedup.outputs.cache-hit == 'true'
+        if: steps.dedup.outputs.cache-hit == 'true'
         run: echo "Already posted today; skipping remaining steps."
 
       - name: Checkout
-        if: github.event_name != 'schedule' || steps.dedup.outputs.cache-hit != 'true'
+        if: steps.dedup.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
 
       - name: Set up Node
-        if: github.event_name != 'schedule' || steps.dedup.outputs.cache-hit != 'true'
+        if: steps.dedup.outputs.cache-hit != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Run Roll Call
-        if: github.event_name != 'schedule' || steps.dedup.outputs.cache-hit != 'true'
+        if: steps.dedup.outputs.cache-hit != 'true'
         id: rollcall
         env:
           SHAPES_REFRESH_TOKEN: ${{ secrets.SHAPES_REFRESH_TOKEN }}
