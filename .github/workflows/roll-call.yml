@@ -12,10 +12,10 @@ on:
     - cron: '31 7 * * 0-4'   # 07:31 UTC = 10:31 Israel DST
     - cron: '45 7 * * 0-4'   # 07:45 UTC = 10:45 Israel DST
     - cron: '59 7 * * 0-4'   # 07:59 UTC = 10:59 Israel DST (last attempt)
-  workflow_dispatch:  # lets you trigger manually from the Actions tab
+  workflow_dispatch:         # lets you trigger manually from the Actions tab
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   roll-call:
@@ -54,6 +54,28 @@ jobs:
         run: |
           node scripts/roll-call.js
           touch .roll-call-marker
+
+      - name: Keep workflow alive
+        # Prevents GitHub from auto-disabling this scheduled workflow after 60
+        # days of no repo activity. Only commits when the repo has been idle for
+        # >=50 days, so it stays quiet. Uses GH_PAT so the push counts as real
+        # repository activity and resets the inactivity timer.
+        if: steps.dedup.outputs.cache-hit != 'true'
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          AGE_DAYS=$(( (NOW - LAST) / 86400 ))
+          if [ "$AGE_DAYS" -ge 50 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keepalive ($(date -u +%F))"
+            git remote set-url origin "https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git"
+            git push origin HEAD:main
+          else
+            echo "Repo committed ${AGE_DAYS}d ago; keepalive commit not needed."
+          fi
 
       - name: Persist rotated refresh token
         # Only runs if the Shapes API returned a different refresh token than we had.
