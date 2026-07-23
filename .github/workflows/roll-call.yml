@@ -7,11 +7,7 @@ on:
     # dedup step below ensures only the first successful run posts each day,
     # regardless of trigger type. Manual runs also save the marker so a delayed
     # scheduled run later that day skips instead of double-posting.
-    - cron: '03 7 * * 0-4'   # 07:03 UTC = 10:03 Israel DST, Sun-Thu
-    - cron: '17 7 * * 0-4'   # 07:17 UTC = 10:17 Israel DST
-    - cron: '31 7 * * 0-4'   # 07:31 UTC = 10:31 Israel DST
-    - cron: '45 7 * * 0-4'   # 07:45 UTC = 10:45 Israel DST
-    - cron: '59 7 * * 0-4'   # 07:59 UTC = 10:59 Israel DST (last attempt)
+    - cron: '30 7 * * 0-4'   # 07:30 UTC = 10:30 Israel DST, Sun-Thu (once daily)
   workflow_dispatch:         # lets you trigger manually from the Actions tab
 
 permissions:
