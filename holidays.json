@@ -1,0 +1,73 @@
+{
+  "_comment": [
+    "Mirror of the Public Holiday policies configured in Shapes:",
+    "Time Management -> Configurations -> Time Away -> Holidays (reason 15106).",
+    "The Shapes API does not expose holiday data (confirmed by schema introspection",
+    "and by Shapes support), so we mirror it here. Keep this file in sync whenever",
+    "HR edits a policy, and add the next year's dates each December.",
+    "Source: https://app.shapes.co/apps/4828/settings/time-away/reasons/15106"
+  ],
+  "_lastSyncedFromShapes": "2026-09-08",
+
+  "officeToPolicy": {
+    "Israel": "jewish",
+    "N. Macedonia": "n-macedonia"
+  },
+
+  "policies": {
+    "jewish": {
+      "label": "Israel",
+      "shapesPolicyName": "Jewish holidays",
+      "years": {
+        "2026": [
+          { "date": "2026-04-01", "name": "Passover Eve", "half": true },
+          { "date": "2026-04-02", "name": "Passover (Day 1)" },
+          { "date": "2026-04-07", "name": "Passover (Day 6)", "half": true },
+          { "date": "2026-04-08", "name": "Passover (Day 7)" },
+          { "date": "2026-04-21", "name": "Yom HaZikaron", "half": true },
+          { "date": "2026-04-22", "name": "Yom HaAtzmaut" },
+          { "date": "2026-05-21", "name": "Shavuot Eve", "half": true },
+          { "date": "2026-05-22", "name": "Shavuot" },
+          { "date": "2026-09-11", "name": "Rosh Hashana Eve", "half": true },
+          { "date": "2026-09-12", "name": "Rosh Hashana" },
+          { "date": "2026-09-13", "name": "Rosh Hashana (Day 2)" },
+          { "date": "2026-09-20", "name": "Yom Kippur Eve", "half": true },
+          { "date": "2026-09-21", "name": "Yom Kippur" },
+          { "date": "2026-09-25", "name": "Sukkot Eve", "half": true },
+          { "date": "2026-09-26", "name": "Sukkot (Day 1)" },
+          { "date": "2026-10-02", "name": "Sukkot (Day 7) / Hoshanah Rabah", "half": true },
+          { "date": "2026-10-03", "name": "Shemini Atzeret / Simchat Torah" }
+        ]
+      }
+    },
+
+    "n-macedonia": {
+      "label": "N. Macedonia",
+      "shapesPolicyName": "N. Macedonia holidays",
+      "years": {
+        "2026": [
+          { "date": "2026-01-01", "name": "New Year's Day" },
+          { "date": "2026-01-07", "name": "Orthodox Christmas Day" },
+          { "date": "2026-03-20", "name": "Eid al-Fitr" },
+          { "date": "2026-04-13", "name": "Easter Monday (Orthodox)" },
+          { "date": "2026-05-01", "name": "Labor Day" },
+          { "date": "2026-05-24", "name": "Saints Cyril and Methodius' Day" },
+          { "date": "2026-05-25", "name": "Saints Cyril and Methodius' Day Observed" },
+          { "date": "2026-08-02", "name": "Republic Day" },
+          { "date": "2026-08-03", "name": "Republic Day Observed" },
+          { "date": "2026-09-08", "name": "Independence Day" },
+          { "date": "2026-10-11", "name": "Day of People's Uprising" },
+          { "date": "2026-10-12", "name": "Day of People's Uprising Observed" },
+          { "date": "2026-10-23", "name": "Day of the Macedonian Revolutionary Struggle" },
+          { "date": "2026-12-08", "name": "Saint Kliment Ohridski's Day" }
+        ]
+      }
+    }
+  },
+
+  "_officesWithoutPolicy": [
+    "Serbia, Slovakia, Turkey and UAE have staff but no Public Holiday policy in",
+    "Shapes, so their holidays are invisible to Shapes AND to this report.",
+    "Fix at the source: add policies in Shapes, then mirror them here."
+  ]
+}

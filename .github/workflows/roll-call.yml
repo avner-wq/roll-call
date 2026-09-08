@@ -1,24 +1,35 @@
 name: Roll Call
 
+
 on:
   schedule:
-    # GitHub Actions free-tier scheduling is unreliable; we fire 5 attempts
-    # spread across 10:03-10:59 Israel DST so at least one lands. The cache-based
-    # dedup step below ensures only the first successful run posts each day,
+    # GitHub Actions free-tier scheduling is unreliable; the cache-based dedup
+    # step below ensures only the first successful run posts each day,
     # regardless of trigger type. Manual runs also save the marker so a delayed
     # scheduled run later that day skips instead of double-posting.
-    - cron: '30 7 * * 0-4'   # 07:30 UTC = 10:30 Israel DST, Sun-Thu (once daily)
-  workflow_dispatch:         # lets you trigger manually from the Actions tab
+    - cron: '30 7 * * 0-4' # 07:30 UTC = 10:30 Israel DST, Sun-Thu (once daily)
+  workflow_dispatch: # lets you trigger manually from the Actions tab
+    inputs:
+      dry_run:
+        description: 'Preview only - print the message, do not post to Slack'
+        type: boolean
+        default: false
+
 
 permissions:
   contents: write
 
+
 jobs:
   roll-call:
     runs-on: ubuntu-latest
+    env:
+      # '1' when the run was manually dispatched with dry_run ticked.
+      DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && '1' || '0' }}
     steps:
       - name: Set today date
         run: echo "TODAY=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
+
 
       - name: Daily idempotency cache
         id: dedup
@@ -27,36 +38,44 @@ jobs:
           path: .roll-call-marker
           key: roll-call-${{ env.TODAY }}
 
+
       - name: Skip if already posted today
-        if: steps.dedup.outputs.cache-hit == 'true'
+        if: steps.dedup.outputs.cache-hit == 'true' && env.DRY_RUN != '1'
         run: echo "Already posted today; skipping remaining steps."
 
+
+      # A dry run must bypass the dedup gate, otherwise you cannot preview the
+      # message on a day the job has already posted.
       - name: Checkout
-        if: steps.dedup.outputs.cache-hit != 'true'
+        if: steps.dedup.outputs.cache-hit != 'true' || env.DRY_RUN == '1'
         uses: actions/checkout@v4
 
+
       - name: Set up Node
-        if: steps.dedup.outputs.cache-hit != 'true'
+        if: steps.dedup.outputs.cache-hit != 'true' || env.DRY_RUN == '1'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+
       - name: Run Roll Call
-        if: steps.dedup.outputs.cache-hit != 'true'
+        if: steps.dedup.outputs.cache-hit != 'true' || env.DRY_RUN == '1'
         id: rollcall
         env:
           SHAPES_REFRESH_TOKEN: ${{ secrets.SHAPES_REFRESH_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           node scripts/roll-call.js
-          touch .roll-call-marker
+          if [ "$DRY_RUN" != "1" ]; then touch .roll-call-marker; fi
+
 
       - name: Keep workflow alive
         # Prevents GitHub from auto-disabling this scheduled workflow after 60
         # days of no repo activity. Only commits when the repo has been idle for
         # >=50 days, so it stays quiet. Uses GH_PAT so the push counts as real
         # repository activity and resets the inactivity timer.
-        if: steps.dedup.outputs.cache-hit != 'true'
+        # Skipped on dry runs so a preview never pushes a commit.
+        if: steps.dedup.outputs.cache-hit != 'true' && env.DRY_RUN != '1'
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
@@ -73,9 +92,10 @@ jobs:
             echo "Repo committed ${AGE_DAYS}d ago; keepalive commit not needed."
           fi
 
+
       - name: Persist rotated refresh token
-        # Only runs if the Shapes API returned a different refresh token than we had.
-        # Needs GH_PAT (a PAT with "repo" scope) so it can write to repo secrets.
+        # Runs even on a dry run: refreshing rotates the token either way, and
+        # failing to persist it would break the next real run.
         if: steps.rollcall.outputs.rotated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -85,3 +105,4 @@ jobs:
           gh secret set SHAPES_REFRESH_TOKEN \
             --repo "${{ github.repository }}" \
             --body "$NEW_TOKEN"
+
