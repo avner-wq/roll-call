@@ -48,8 +48,9 @@ function writeOutput(key, value) {
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `${key}<<${delim}\n${value}\n${delim}\n`);
 }
 
-// What we're hunting for in field / type names.
-const RE = /holiday|office|schedule|working|nonworking|non_working|calendar|absence|away|location|country/i;
+// v2: dump the WHOLE schema. The targeted search found no holiday/schedule
+// query at all, so we now need to see every type and every root field's args.
+const RE = /./;
 
 (async () => {
   const stored = process.env.SHAPES_REFRESH_TOKEN;
@@ -59,14 +60,20 @@ const RE = /holiday|office|schedule|working|nonworking|non_working|calendar|abse
   console.log('::add-mask::' + newRefresh);
   console.log('::add-mask::' + accessToken);
 
-  const rootData = await gql(accessToken, '{ __schema { queryType { fields { name } } } }');
-  const rootFields = rootData.__schema.queryType.fields.map((f) => f.name).sort();
+  const rootData = await gql(
+    accessToken,
+    '{ __schema { queryType { fields { name args { name type { name kind ofType { name } } } type { name kind ofType { name } } } } } }'
+  );
+  const rootFields = rootData.__schema.queryType.fields;
 
-  console.log(`=== ALL ROOT QUERY FIELDS (${rootFields.length}) ===`);
-  console.log(rootFields.join('\n'));
-
-  console.log('\n=== ROOT FIELDS MATCHING HOLIDAY / OFFICE / SCHEDULE ===');
-  console.log(rootFields.filter((n) => RE.test(n)).join('\n') || '(none)');
+  console.log(`=== ROOT QUERY FIELDS WITH ARGS (${rootFields.length}) ===`);
+  for (const f of rootFields) {
+    const args = (f.args || [])
+      .map((a) => a.name + ':' + (a.type.name || a.type.ofType?.name || a.type.kind))
+      .join(', ');
+    const ret = f.type.name || f.type.ofType?.name || f.type.kind;
+    console.log(`  ${f.name}(${args}) -> ${ret}`);
+  }
 
   const typeData = await gql(
     accessToken,
@@ -74,10 +81,10 @@ const RE = /holiday|office|schedule|working|nonworking|non_working|calendar|abse
   );
 
   const matched = typeData.__schema.types.filter(
-    (t) => t.name && !t.name.startsWith('__') && RE.test(t.name)
+    (t) => t.name && !t.name.startsWith('__') && (t.fields || []).length && RE.test(t.name)
   );
 
-  console.log(`\n=== MATCHING TYPES (${matched.length}) ===`);
+  console.log(`\n=== ALL OBJECT TYPES (${matched.length}) ===`);
   for (const t of matched) {
     console.log(`\n--- ${t.kind} ${t.name} ---`);
     for (const f of t.fields || []) {
