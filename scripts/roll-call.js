@@ -238,7 +238,9 @@ function buildMessage(payload, today, dateLabel, config) {
     .map(x => x.text);
 
   const body = lines.length === 0
-    ? `📋 *Roll Call — ${dateLabel}*\n\n✅ No mentionable notifications today. Everyone is in the office!`
+    // Fri is the weekend in Israel and Sun is the weekend for the overseas offices,
+    // so on those days the empty state must not claim the whole company is in.
+    ? `📋 *Roll Call — ${dateLabel}*\n\n✅ No mentionable notifications today. Everyone${[0, 5].includes(new Date(today + 'T00:00:00Z').getUTCDay()) ? ' working today' : ''} is in the office!`
     : `📋 *Roll Call — ${dateLabel}*\n\n${lines.join('\n')}`;
 
   return { text: body, count: lines.length, warnings };
