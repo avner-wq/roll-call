@@ -7,7 +7,7 @@ on:
     # step below ensures only the first successful run posts each day,
     # regardless of trigger type. Manual runs also save the marker so a delayed
     # scheduled run later that day skips instead of double-posting.
-    - cron: '30 7 * * 0-4' # 07:30 UTC = 10:30 Israel DST, Sun-Thu (once daily)
+    - cron: '30 7 * * 0-5' # 07:30 UTC = 10:30 Israel DST, Sun-Fri (once daily)
   workflow_dispatch: # lets you trigger manually from the Actions tab
     inputs:
       dry_run:
