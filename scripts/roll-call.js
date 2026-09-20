@@ -185,9 +185,7 @@ function buildMessage(payload, today, dateLabel, config) {
     return { name, text: `• ${name} — ${emojiFor(reason)} ${reason}` };
   });
 
-  const alreadyListed = new Set(entries.map(e => e.name));
-
-  // --- 2. Public holidays, per office -----------------------------------
+  // --- 2. Public holidays, grouped per office -------------------------
   const { byEmployee, officeFieldFound } = resolveOffices(payload);
   if (!officeFieldFound) {
     warnings.push('Could not find an "Office" employee field - public holidays were NOT checked.');
@@ -196,6 +194,9 @@ function buildMessage(payload, today, dateLabel, config) {
   const noOffice = [];
   const unmappedOffices = new Set();
   const staleYears = new Set();
+  // One line per (holiday, office) rather than per person. Listing each person
+  // individually buried the handful of real absences under the whole office.
+  const holidayGroups = new Map();
 
   for (const e of payload.employees || []) {
     const id = String(e.id);
@@ -212,15 +213,10 @@ function buildMessage(payload, today, dateLabel, config) {
     if (r.status === 'no-year') { staleYears.add(`${office} (${today.slice(0, 4)})`); continue; }
     if (r.status !== 'holiday') continue;
 
-    // Someone already off (e.g. vacation) shouldn't be listed twice.
-    if (alreadyListed.has(name)) continue;
-
-    const suffix = r.hit.half ? ' - half day' : '';
-    entries.push({
-      name,
-      text: `• ${name} — 🎉 ${r.hit.name} (${r.policy.label} holiday)${suffix}`,
-    });
-    alreadyListed.add(name);
+    const key = `${r.policy.label}|${r.hit.name}|${r.hit.half ? 1 : 0}`;
+    if (!holidayGroups.has(key)) {
+      holidayGroups.set(key, { label: r.policy.label, holiday: r.hit.name, half: !!r.hit.half });
+    }
   }
 
   if (noOffice.length) {
@@ -237,11 +233,26 @@ function buildMessage(payload, today, dateLabel, config) {
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(x => x.text);
 
-  const body = lines.length === 0
-    // Fri is the weekend in Israel and Sun is the weekend for the overseas offices,
-    // so on those days the empty state must not claim the whole company is in.
-    ? `📋 *Roll Call — ${dateLabel}*\n\n✅ No mentionable notifications today. Everyone${[0, 5].includes(new Date(today + 'T00:00:00Z').getUTCDay()) ? ' working today' : ''} is in the office!`
-    : `📋 *Roll Call — ${dateLabel}*\n\n${lines.join('\n')}`;
+  const holidayLines = [...holidayGroups.values()]
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map(g => `🎉 *${g.holiday}* — ${g.label} office off${g.half ? ', half day' : ''}`);
+
+  const sections = [];
+  if (holidayLines.length) sections.push(holidayLines.join('\n'));
+
+  if (lines.length) {
+    // The "Away today" heading only earns its place under a holiday block.
+    sections.push(holidayLines.length ? `*Away today:*\n${lines.join('\n')}` : lines.join('\n'));
+  } else if (holidayLines.length) {
+    sections.push('✅ No other absences today.');
+  } else {
+    // Fri is the weekend in Israel and Sun is the weekend for the overseas
+    // offices, so on those days don't claim the whole company is in.
+    const partial = [0, 5].includes(new Date(today + 'T00:00:00Z').getUTCDay());
+    sections.push(`✅ No mentionable notifications today. Everyone${partial ? ' working today' : ''} is in the office!`);
+  }
+
+  const body = `📋 *Roll Call — ${dateLabel}*\n\n${sections.join('\n\n')}`;
 
   return { text: body, count: lines.length, warnings };
 }
